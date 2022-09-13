@@ -1,0 +1,61 @@
+name: Build single extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: Extension language (en, ar, es, pt...)
+        required: true
+      extension:
+        description: Target extension name
+        required: true
+      git-repo:
+        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions
+        default: ''
+        required: false
+      git-ref:
+        description: Git Ref (Optional, defaults to master)
+        default: 'master'
+        required: false
+
+env:
+  EXTPATH: ${{ github.event.inputs.lang }}/${{ github.event.inputs.extension }}
+  EXTSLUG: ${{ github.event.inputs.lang }}:${{ github.event.inputs.extension }}
+  REPO: ${{ github.event.inputs.git-repo }}
+  CI_MODULE_GEN: true
+
+jobs:
+  build-extension:
+    name: Build a single extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check inputs
+        if: env.REPO == ''
+        run: |
+          set -e
+          echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
+      - name: Clone Repository (Latest)
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.REPO }}
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: adopt
+
+      - name: Build APK
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: :extensions:individual:${{ env.EXTSLUG }}:assembleDebug
+          gradle-home-cache-cleanup: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{github.event.inputs.lang}}-${{ github.event.inputs.extension }}
+          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk"
+          retention-days: 1
