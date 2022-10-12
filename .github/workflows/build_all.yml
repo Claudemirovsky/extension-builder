@@ -1,0 +1,115 @@
+name: Build ALL extensions
+
+on:
+  workflow_dispatch:
+    inputs:
+      git-repo:
+        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions
+        default: ''
+        required: false
+      git-ref:
+        description: Git Ref (Optional, defaults to master)
+        default: 'master'
+        required: false
+
+env:
+  CI_CHUNK_SIZE: 65
+  REPO: ${{ github.event.inputs.git-repo }}
+
+jobs:
+  prepare:
+    name: Prepare job
+    runs-on: ubuntu-latest
+    outputs:
+      individualMatrix: ${{ steps.generate-matrices.outputs.individualMatrix }}
+    env:
+      CI_MODULE_GEN: true
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+          all_but_latest: true
+
+      - name: Check inputs
+        if: env.REPO == ''
+        run: |
+          set -e
+          echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
+      - name: Clone Repository (Latest)
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.REPO }}
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v1.0.4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: adopt
+
+      - name: Get number of modules
+        run: |
+          set -x
+          ./gradlew -q projects | grep '.*extensions\:individual\:.*\:.*' > projects.txt
+
+          echo "NUM_INDIVIDUAL_MODULES=$(cat projects.txt | grep '.*\:individual\:.*' | wc -l)" >> $GITHUB_ENV
+
+      - id: generate-matrices
+        name: Create output matrices
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const numIndividualModules = process.env.NUM_INDIVIDUAL_MODULES;
+            const chunkSize = process.env.CI_CHUNK_SIZE;
+
+            const numIndividualChunks = Math.ceil(numIndividualModules / chunkSize);
+
+            console.log(`Individual modules: ${numIndividualModules} (${numIndividualChunks} chunks of ${chunkSize})`);
+
+            core.setOutput('individualMatrix', { 'chunk': [...Array(numIndividualChunks).keys()] });
+
+  build_individual:
+    name: Build individual modules
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.prepare.outputs.individualMatrix) }}
+    steps:
+      - name: Check inputs
+        if: env.REPO == ''
+        run: |
+          set -e
+          echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
+
+      - name: Clone Repository (Latest)
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.REPO }}
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: adopt
+
+      - name: Build extensions (chunk ${{ matrix.chunk }})
+        uses: gradle/gradle-command-action@v2
+        env:
+          CI_MULTISRC: "false"
+          CI_CHUNK_NUM: ${{ matrix.chunk }}
+        with:
+          arguments: assembleDebug
+
+      - name: Upload APKs (chunk ${{ matrix.chunk }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: "individual-apks-${{ matrix.chunk }}"
+          path: "**/*.apk"
+          retention-days: 1
