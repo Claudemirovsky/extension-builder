@@ -100,7 +100,7 @@ jobs:
           distribution: adopt
 
       - name: Build extensions (chunk ${{ matrix.chunk }})
-        uses: gradle/gradle-command-action@v2
+        uses: gradle/gradle-command-action@v2.3.3
         env:
           CI_MULTISRC: "false"
           CI_CHUNK_NUM: ${{ matrix.chunk }}
