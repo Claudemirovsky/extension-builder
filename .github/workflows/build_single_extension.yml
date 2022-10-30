@@ -48,7 +48,7 @@ jobs:
           distribution: adopt
 
       - name: Build APK
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v2.3.3
         with:
           arguments: :extensions:individual:${{ env.EXTSLUG }}:assembleDebug
           gradle-home-cache-cleanup: true
