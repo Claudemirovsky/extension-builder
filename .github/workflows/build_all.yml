@@ -12,6 +12,10 @@ on:
         default: 'master'
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 env:
   CI_CHUNK_SIZE: 65
   REPO: ${{ github.event.inputs.git-repo }}
@@ -26,12 +30,6 @@ jobs:
     env:
       CI_MODULE_GEN: true
     steps:
-      - name: Cancel previous runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          access_token: ${{ github.token }}
-          all_but_latest: true
-
       - name: Check inputs
         if: env.REPO == ''
         run: |
@@ -44,9 +42,6 @@ jobs:
           repository: ${{ env.REPO }}
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
-
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v1.0.4
 
       - name: Set up JDK
         uses: actions/setup-java@v3
