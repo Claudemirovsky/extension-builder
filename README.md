@@ -11,4 +11,4 @@ An easy way to compile [ani/tachi]yomi extensions when you're far from a proper 
 
 ## TODO
 
- - [ ] Add multisrc support
+ - [x] Add multisrc support
