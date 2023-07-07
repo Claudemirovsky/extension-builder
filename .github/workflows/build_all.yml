@@ -46,8 +46,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Generate multisrc sources
         uses: gradle/gradle-command-action@v2
@@ -104,8 +104,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Generate sources from the multi-source library
         uses: gradle/gradle-command-action@v2.3.3
@@ -152,8 +152,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Build extensions (chunk ${{ matrix.chunk }})
         uses: gradle/gradle-command-action@v2.3.3
