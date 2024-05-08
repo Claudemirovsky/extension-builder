@@ -9,11 +9,6 @@ on:
       extension:
         description: Target extension name
         required: true
-      ismultisrc:
-        type: boolean
-        description: Its a multisrc extension
-        default: false
-        required: false
       git-repo:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions
         default: ''
@@ -24,12 +19,11 @@ on:
         required: false
 
 env:
-  BASEPATH: src
   EXTPATH: ${{ github.event.inputs.lang }}/${{ github.event.inputs.extension }}
-  BASESLUG: individual
   EXTSLUG: ${{ github.event.inputs.lang }}:${{ github.event.inputs.extension }}
   REPO: ${{ github.event.inputs.git-repo }}
-  CI_MODULE_GEN: true
+  CI_CHUNK_SIZE: 65
+  CI_CHUNK_NUM: 1
 
 jobs:
   build-extension:
@@ -42,10 +36,6 @@ jobs:
           if [[ -z "${{ env.REPO }}" ]]; then
             echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
           fi
-          if [[ ${{ github.event.inputs.ismultisrc }} != false ]]; then
-            echo "BASEPATH=generated-src" >> $GITHUB_ENV
-            echo "BASESLUG=multisrc" >> $GITHUB_ENV
-          fi
       - name: Clone Repository (Latest)
         uses: actions/checkout@v4
         with:
@@ -53,26 +43,18 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: zulu
 
-      - name: Generate multisrc extensions
-        if: ${{ github.event.inputs.ismultisrc == 'true' }}
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: :multisrc:generateExtensions
-
       - name: Build APK
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: :extensions:${{ env.BASESLUG }}:${{ env.EXTSLUG }}:assembleDebug
+        run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{github.event.inputs.lang}}-${{ github.event.inputs.extension }}
-          path: "${{ env.BASEPATH }}/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk"
+          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk"
           retention-days: 1

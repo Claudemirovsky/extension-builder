@@ -46,91 +46,32 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: zulu
-
-      - name: Generate multisrc sources
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: :multisrc:generateExtensions
 
       - name: Get number of modules
         run: |
           set -x
-          ./gradlew -q projects | grep '.*extensions\:\(individual\|multisrc\)\:.*\:.*' > projects.txt
+          projects=(src/*/*)
 
-          echo "NUM_INDIVIDUAL_MODULES=$(grep -c '.*\:individual\:.*' projects.txt)" >> $GITHUB_ENV
-          echo "NUM_MULTISRC_MODULES=$(grep -c '.*\:multisrc\:.*' projects.txt)" >> $GITHUB_ENV
+          echo "NUM_INDIVIDUAL_MODULES=${#projects[@]}" >> $GITHUB_ENV
 
       - id: generate-matrices
         name: Create output matrices
-        uses: actions/github-script@v6
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             const numIndividualModules = process.env.NUM_INDIVIDUAL_MODULES;
-            const numMultisrcModules = process.env.NUM_MULTISRC_MODULES;
             const chunkSize = process.env.CI_CHUNK_SIZE;
 
             const numIndividualChunks = Math.ceil(numIndividualModules / chunkSize);
-            const numMultisrcChunks = Math.ceil(numMultisrcModules / chunkSize);
 
             console.log(`Individual modules: ${numIndividualModules} (${numIndividualChunks} chunks of ${chunkSize})`);
-            console.log(`Multi-source modules: ${numMultisrcModules} (${numMultisrcChunks} chunks of ${chunkSize})`);
 
             core.setOutput('individualMatrix', { 'chunk': [...Array(numIndividualChunks).keys()] });
-            core.setOutput('multisrcMatrix', { 'chunk': [...Array(numMultisrcChunks).keys()] });
 
-
-  build_multisrc:
-    name: Build multisrc modules
-    needs: prepare
-    runs-on: ubuntu-latest
-    strategy:
-      matrix: ${{ fromJSON(needs.prepare.outputs.multisrcMatrix) }}
-    steps:
-      - name: Check inputs
-        if: env.REPO == ''
-        run: |
-          set -e
-          echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
-
-      - name: Clone Repository (Latest)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.REPO }}
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.git-ref }}
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: 17
-          distribution: zulu
-
-      - name: Generate sources from the multi-source library
-        uses: gradle/gradle-build-action@v2
-        env:
-          CI_MODULE_GEN: "true"
-        with:
-          arguments: :multisrc:generateExtensions
-
-      - name: Build extensions (chunk ${{ matrix.chunk }})
-        uses: gradle/gradle-build-action@v2
-        env:
-          CI_MULTISRC: "true"
-          CI_CHUNK_NUM: ${{ matrix.chunk }}
-        with:
-          arguments: assembleDebug
-
-      - name: Upload APKs (chunk ${{ matrix.chunk }})
-        uses: actions/upload-artifact@v3
-        with:
-          name: "multisrc-apks-${{ matrix.chunk }}"
-          path: "**/*.apk"
-          retention-days: 1
-
-  build_individual:
-    name: Build individual modules
+  build_all:
+    name: Build all sources
     needs: prepare
     runs-on: ubuntu-latest
     strategy:
@@ -152,19 +93,16 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: 21
           distribution: zulu
 
       - name: Build extensions (chunk ${{ matrix.chunk }})
-        uses: gradle/gradle-build-action@v2
         env:
-          CI_MULTISRC: "false"
           CI_CHUNK_NUM: ${{ matrix.chunk }}
-        with:
-          arguments: assembleDebug
+        run: ./gradlew -p src assembleDebug
 
       - name: Upload APKs (chunk ${{ matrix.chunk }})
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "individual-apks-${{ matrix.chunk }}"
           path: "**/*.apk"
