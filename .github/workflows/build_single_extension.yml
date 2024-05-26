@@ -22,8 +22,6 @@ env:
   EXTPATH: ${{ github.event.inputs.lang }}/${{ github.event.inputs.extension }}
   EXTSLUG: ${{ github.event.inputs.lang }}:${{ github.event.inputs.extension }}
   REPO: ${{ github.event.inputs.git-repo }}
-  CI_CHUNK_SIZE: 65
-  CI_CHUNK_NUM: 1
 
 jobs:
   build-extension:
@@ -50,6 +48,8 @@ jobs:
           distribution: zulu
 
       - name: Build APK
+        env:
+          CI: false
         run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
       - name: Upload artifacts
